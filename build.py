@@ -12,6 +12,8 @@ def build_app():
         '--hidden-import=flask',
         '--hidden-import=escpos',
         '--hidden-import=PIL',
+        '--hidden-import=requests',
+        '--hidden-import=ngrok',
         '--clean',
         '--onefile',
         '--noconfirm',
@@ -19,16 +21,16 @@ def build_app():
     ])
 
     # Tạo thư mục DMG
-    dmg_folder = "PrintService.dmg"
-    if os.path.exists(dmg_folder):
-        shutil.rmtree(dmg_folder)
-    os.makedirs(dmg_folder)
+    # dmg_folder = "PrintService.dmg"
+    # if os.path.exists(dmg_folder):
+    #     shutil.rmtree(dmg_folder)
+    # os.makedirs(dmg_folder)
 
-    # Copy ứng dụng vào thư mục DMG
-    shutil.copytree("dist/PrintService.app", f"{dmg_folder}/PrintService.app")
+    # # Copy ứng dụng vào thư mục DMG
+    # shutil.copytree("dist/PrintService.app", f"{dmg_folder}/PrintService.app")
 
-    # Tạo symbolic link đến Applications
-    os.symlink("/Applications", f"{dmg_folder}/Applications")
+    # # Tạo symbolic link đến Applications
+    # os.symlink("/Applications", f"{dmg_folder}/Applications")
 
 if __name__ == '__main__':
     build_app()

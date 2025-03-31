@@ -1,11 +1,15 @@
 import os
 import sys
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import base64
 from escpos.printer import Network
 from io import BytesIO
 from PIL import Image
 import json
+import subprocess
+import time
+import requests
+from pyngrok import ngrok
 
 def resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
@@ -16,12 +20,62 @@ app = Flask(__name__,
             template_folder=resource_path('templates'),
             static_folder=resource_path('static'))
 
+@app.route('/start_ngrok', methods=['POST'])
+def start_ngrok_route():
+    try:
+        token = request.json.get('token')
+        path = request.json.get('path')
+        subprocess.run([path, "config", "add-authtoken", token])
+        process = subprocess.Popen([path, "http", str(5000)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Chờ một chút để ngrok khởi động
+        time.sleep(2)
+        response = requests.get("http://127.0.0.1:4040/api/tunnels")
+        data = response.json()
+        return jsonify({
+            'success': True,
+            'url': data["tunnels"][0]["public_url"]
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
+
 @app.route('/')
 def index():
     return '''
-        <p>Print Services Running...</p>
+        <h1>Print Services Running...</h1>
+        <input type="text" id="path" placeholder="Enter your path ngrok">
+        <input type="password" id="token" placeholder="Enter your ngrok auth token Ngrok" value="2aCo7NQtPgzibVWzUjnKZhKytVo_3c7CGtCYaAtmvaE6XMJDr">
+        <button class="btn start-btn" onclick="startNgrok()">Start Service</button>
         <button onclick="stopServer()">Stop Service</button>
+        <div class="url" id="url"></div>
         <script>
+            function startNgrok() {
+                const token = document.getElementById('token').value;
+                const path = document.getElementById('path').value;
+                if (!token || !path) {
+                    Alert('Please enter your ngrok auth token and path');
+                    return;
+                }
+                document.getElementById('url').style.display = 'none';
+
+                // Call API
+                fetch('/start_ngrok', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ token: token, path: path }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    document.getElementById('url').textContent = data.url;
+                    document.getElementById('url').style.display = 'block';
+                })
+            }
             function stopServer() {
                 fetch('/shutdown', { method: 'POST' })
                 .then(response => response.text())
@@ -34,6 +88,7 @@ def index():
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     shutdown_func = request.environ.get('werkzeug.server.shutdown')
+    ngrok.kill()
     if shutdown_func:
         shutdown_func()
         return "Server đang tắt..."
